@@ -24,12 +24,12 @@ func main() {
     go lib.StartDcTail(pubsub)
 
     // Start the request aggregator.
-    go lib.StartRequestAggregator(pubsub)
+    //go lib.StartRequestAggregator(pubsub)
 
     // Basic console printer.
     var event interface{}
     var ser []byte
-    rawevents := pubsub.Sub("events", "requests")
+    rawevents := pubsub.Sub("events")
     for {
         event = <- rawevents
         ser, err = json.MarshalIndent(event, "", "  ")
