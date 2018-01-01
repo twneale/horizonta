@@ -165,7 +165,7 @@ func tailthing(filename string, created bool, metadata map[string]map[string]str
 
 
 func NewDcTail() *pubsub.PubSub {
-    events := pubsub.New(1)
+    events := pubsub.New(10)
     return events
 }
 
@@ -197,7 +197,7 @@ func StartDcTail(events *pubsub.PubSub) {
             if !strings.HasSuffix(f.Name(), ".log") {
                 continue
             }
-            log.Println("Tailing existing file:", f.Name())
+            //log.Println("Tailing existing file:", f.Name())
             go tailthing(f.Name(), false, metadata, events)
         }
 
@@ -205,7 +205,7 @@ func StartDcTail(events *pubsub.PubSub) {
             select {
             case event := <-watcher.Events:
                 if event.Op&fsnotify.Create == fsnotify.Create {
-                    log.Println("starting new tail:", event.Name)
+                    //log.Println("starting new tail:", event.Name)
                     if event.Op&fsnotify.Create == fsnotify.Create {
                         go tailthing(event.Name, true, metadata, events)
                     }

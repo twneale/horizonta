@@ -18,7 +18,8 @@ func publishAggregatedRequest(event VerticaRequest, ps *pubsub.PubSub) {
 }
 
 
-func StartRequestAggregator(ps *pubsub.PubSub) {
+func StartRequestAggregator(tailPubsub *pubsub.PubSub, requestPubsub *pubsub.PubSub) {
+    fmt.Println("Something called request agg")
     requestsIssued := make(map[string]interface{})
     var event interface{}
     var ievent VerticaEvent
@@ -26,7 +27,7 @@ func StartRequestAggregator(ps *pubsub.PubSub) {
     var request VerticaRequest
     var cacheKey string 
    
-    allEvents := ps.Sub("events")
+    allEvents := tailPubsub.Sub("events")
 
     for {
         event = <-allEvents
@@ -40,7 +41,7 @@ func StartRequestAggregator(ps *pubsub.PubSub) {
             issued = requestsIssued[cacheKey]
             request = VerticaRequest{Request: issued, Result: event}
             fmt.Println("About to publish this cow:", request)
-            publishAggregatedRequest(request, ps)
+            publishAggregatedRequest(request, requestPubsub)
         }
     }
 }
