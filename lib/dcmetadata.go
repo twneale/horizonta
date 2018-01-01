@@ -4,7 +4,7 @@
 
 // +build !plan9
 
-package horizonta
+package lib
 
 import (
     "log"
@@ -27,7 +27,7 @@ var (
 var metadata map[string]map[string]string
 
 
-func New(dcSchemaName string, dataSourceName string) map[string]map[string]string {
+func NewDcMetadata(dcSchemaName string, dataSourceName string) map[string]map[string]string {
 
     var db *sql.DB
     db, err = sql.Open("odbc", dataSourceName)

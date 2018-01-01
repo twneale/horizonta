@@ -12,7 +12,7 @@ import (
     "fmt"
     "strings"
 
-    "./horizonta"
+    "github.com/twneale/horizonta"
 )
 
 
@@ -20,11 +20,11 @@ var err error
 
 func main() {
     // Start the event producer.
-    pubsub := dctail.New()
-    go dctail.Start(pubsub)
+    pubsub := NewDcTail()
+    go StartDcTail(pubsub)
 
     // Start the request aggregator.
-    go requestagg.Start(pubsub)
+    go StartRequestAggregator(pubsub)
 
     // Basic console printer.
     var event interface{}

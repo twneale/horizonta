@@ -4,15 +4,13 @@
 
 // +build !plan9
 
-package horizonta
+package lib
 
 
 import (
     "fmt"
     "github.com/cskr/pubsub"
 )
-
-var events pubsub.PubSub
 
 
 func publishAggregatedRequest(event VerticaRequest, ps *pubsub.PubSub) {

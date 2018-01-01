@@ -4,12 +4,11 @@
 
 // +build !plan9
 
-package horizonta
+package lib
 
 
 import (
     "runtime/debug"
-    "fmt"
     "io/ioutil"
     "log"
     "os"
@@ -22,9 +21,7 @@ import (
     "github.com/cskr/pubsub"
 )
 
-var err error 
 var events pubsub.PubSub
-var metadata map[string]map[string]string
 var verticaEpoch time.Time
 var verticaEpochOffset int
 
@@ -167,16 +164,16 @@ func tailthing(filename string, created bool, metadata map[string]map[string]str
 }
 
 
-func New() *pubsub.PubSub {
+func NewDcTail() *pubsub.PubSub {
     events := pubsub.New(1)
     return events
 }
 
 
-func Start(events *pubsub.PubSub) {
+func StartDcTail(events *pubsub.PubSub) {
 
     // Fetch the DataCollector schema metadata.
-    metadata := dcmetadata.New("dc", "DSN=vertica")
+    metadata := NewDcMetadata("dc", "DSN=vertica")
 
     // Watch all data collector files for changes.
     watcher, watch_err := fsnotify.NewWatcher()
