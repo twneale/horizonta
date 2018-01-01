@@ -20,11 +20,11 @@ var err error
 
 func main() {
     // Start the event producer.
-    pubsub := NewDcTail()
-    go StartDcTail(pubsub)
+    pubsub := lib.NewDcTail()
+    go lib.StartDcTail(pubsub)
 
     // Start the request aggregator.
-    go StartRequestAggregator(pubsub)
+    go lib.StartRequestAggregator(pubsub)
 
     // Basic console printer.
     var event interface{}
