@@ -12,7 +12,7 @@ import (
     "fmt"
     "strings"
 
-    "github.com/twneale/horizonta"
+    "github.com/twneale/horizontai/lib"
 )
 
 
