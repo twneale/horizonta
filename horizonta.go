@@ -9,8 +9,6 @@ package main
 import (
     "fmt"
     "flag"
-    "runtime/debug"
-    "encoding/json"
 
     "github.com/twneale/horizonta/lib"
     "github.com/cskr/pubsub"
