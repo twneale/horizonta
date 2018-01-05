@@ -7,10 +7,10 @@
 package main
 
 import (
+    "fmt"
+    "flag"
     "runtime/debug"
     "encoding/json"
-    "fmt"
-    //"strings"
 
     "github.com/twneale/horizonta/lib"
     "github.com/cskr/pubsub"
@@ -26,54 +26,32 @@ func NewRequestPubsub() *pubsub.PubSub {
 }
 
 func main() {
-    fmt.Println("at 1")
-    // Start the event producer.
+
+    // Get config values.    
+    var configPath string
+    flag.StringVar(&configPath, "config", "/etc/horizonta/config.json", "Path to json config file")
+    flag.Parse()
+    config := lib.ParseConfig(configPath)
+    fmt.Println("Config is", config)
+
+    // Initialize the event producer.
     tailPubsub := lib.NewDcTail()
 
     // Start the request aggregator. Create a new pubsub object for it.
-
     requestPubsub := NewRequestPubsub()
     go lib.StartRequestAggregator(tailPubsub, requestPubsub)
 
-    // Basic console printer.
-    go func() {
-        var event interface{}
-        var ser []byte
-        rawevents := tailPubsub.Sub("events")
-        for {
-            event = <- rawevents
-            ser, err = json.MarshalIndent(event, "", "  ")
-            if err != nil {
-                debug.PrintStack()
-                panic(err)
-            }
-            //if (strings.Contains(string(ser), "RequestsIssued")) || (strings.Contains(string(ser), "RequestsCompleted")) {
-            fmt.Println(string(ser))
-            //}
-        }
-    }()
-
-    // Basic console printer.
-    go func() {
-        fmt.Println("Printing stuff!")
-        var event interface{}
-        var ser []byte
-        rawevents := requestPubsub.Sub("requests")
-        for {
-            event = <- rawevents
-            ser, err = json.MarshalIndent(event, "", "  ")
-            if err != nil {
-                debug.PrintStack()
-                panic(err)
-            }
-            fmt.Println(string(ser))
-        }
-    }()
-
     // Start the fluentd logger.
-    go func() {
-        lib.StartFluentdLogger(tailPubsub)
-    }()
+    go lib.StartFluentdLogger(&config, tailPubsub)
+
+    // Start the prometheus exporter.
+    go lib.StartPrometheusExporter(&config, tailPubsub)
+
+    // Start the dc events redis publisher.
+    go lib.StartRedisPublisher(&config, tailPubsub, "events")
+
+    // Start the aggregated requests publisher.
+    go lib.StartRedisPublisher(&config, requestPubsub, "requests")
 
     lib.StartDcTail(tailPubsub)
 }

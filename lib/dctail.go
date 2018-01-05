@@ -109,6 +109,18 @@ func publishEvent(event VerticaEvent, events *pubsub.PubSub) {
 
 func tailthing(filename string, created bool, metadata map[string]map[string]string, events *pubsub.PubSub) {
 
+    // Bail if its not a "*.log".
+    skipSubstrings := [...]string{"ByDay", "ByHour", "ByMinute", "BySecond"}
+    if !strings.HasSuffix(filename, ".log") {
+        return
+    }
+    // Bail if file contains aggregate data.
+    for _, s := range skipSubstrings {
+        if strings.Contains(filename, s) {
+            return
+        }
+    } 
+
     // Set the tail config.
     var config tail.Config
     if created {
@@ -191,12 +203,8 @@ func StartDcTail(events *pubsub.PubSub) {
         if err != nil {
             log.Fatal(err)
         }
-
+        
         for _, f := range files {
-            // Only tail log files; ignore SQL files. 
-            if !strings.HasSuffix(f.Name(), ".log") {
-                continue
-            }
             //log.Println("Tailing existing file:", f.Name())
             go tailthing(f.Name(), false, metadata, events)
         }
@@ -216,7 +224,7 @@ func StartDcTail(events *pubsub.PubSub) {
         }
     }()
 
-    watch_add_err := watcher.Add(os.Args[1])
+    watch_add_err := watcher.Add(".")
     if watch_add_err != nil {
         log.Fatal(watch_add_err)
     }

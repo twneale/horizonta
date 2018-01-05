@@ -19,7 +19,6 @@ func publishAggregatedRequest(event VerticaRequest, ps *pubsub.PubSub) {
 
 
 func StartRequestAggregator(tailPubsub *pubsub.PubSub, requestPubsub *pubsub.PubSub) {
-    fmt.Println("Something called request agg")
     requestsIssued := make(map[string]interface{})
     var event interface{}
     var ievent VerticaEvent

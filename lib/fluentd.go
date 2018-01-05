@@ -1,23 +1,32 @@
 package lib
 
 import (
-    "fluent" "github.com/fluent/fluent-logger-golang"
+    "fmt"
+    "github.com/cskr/pubsub"
+    "github.com/fluent/fluent-logger-golang/fluent"
 )
 
-
-func StartFluentdLogger(eventsPubsub *pubsub.Pubsub) {
+var (
     tag     string 
     event   interface{}
-    ievent  VerticaEvent   
-    logger, err := fluent.New(fluent.Config{FluentPort: 24224, FluentHost: "127.0.0.1"})
+    ievent  VerticaEvent
+)
+
+func StartFluentdLogger(config *Config, eventsPubsub *pubsub.PubSub) {
+
+    logger, err := fluent.New(fluent.Config{
+        FluentPort: config.FluentdPort, 
+        FluentHost: config.FluentdHost})
     if err != nil {
         fmt.Println(err)
     }
     defer logger.Close()
+
     allEvents := eventsPubsub.Sub("events")
     for {
-        event <- events 
+        event = <- allEvents 
         ievent = event.(VerticaEvent) 
-        logger.Post(ievent.Type, event)
+        tag = fmt.Sprintf("%s-%s", "vertica-dc", ievent.Type)
+        logger.Post(tag, ievent.Data)
     }
 }
