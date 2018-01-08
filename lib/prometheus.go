@@ -3,6 +3,7 @@ package lib
 import (
     "fmt"
     "strings"
+    "strconv"
     "net/http"
     "text/template"
 
@@ -23,6 +24,8 @@ type PrometheusMetric struct {
     Labels *map[string]string
 }
 
+
+
 func (m PrometheusMetric) Printf (w http.ResponseWriter) {
     tmpl, err := template.New("metric").Parse(`
       {{- .Name }}{{ "{" }}
@@ -34,6 +37,7 @@ func (m PrometheusMetric) Printf (w http.ResponseWriter) {
 }
 
 var metrics map[string]PrometheusMetric
+var parsedValue interface{}
 
 
 func stringInSlice(a string, list []string) bool {
@@ -45,6 +49,24 @@ func stringInSlice(a string, list []string) bool {
     return false
 }
 
+
+func parseValue(s string) interface{} {
+    /* Try parsing a value as an int64 or uint64, and if both fail,
+    it's a string. */
+    var value interface{}
+    value = s
+    value, err := strconv.ParseInt(s, 10, 64)
+    if err != nil {
+        value, err := strconv.ParseUint(s, 10, 64)
+        if err != nil {
+            return s
+        }
+        return value
+    }
+    return value
+}
+
+
 func startMetricsAggregator(metrics *map[string]PrometheusMetric, eventsPubsub *pubsub.PubSub) {
     var (
         event   interface{}
@@ -53,30 +75,20 @@ func startMetricsAggregator(metrics *map[string]PrometheusMetric, eventsPubsub *
         metricName string
         labels  map[string]string
     )
-    if err != nil {
-        fmt.Println(err)
-    }
     
     reportStreams := []string{
         "ResourcePoolStatus",
         "BlockMemoryManagerStatistics",
-        "StorageLayerStatistics"}
+        "StorageLayerStatistics",
+        "AllocationPoolStatistics",
+        "HeartbeatEvents",
+        "HeartbeatMonitoringEvents",
+    }
 
     allEvents := eventsPubsub.Sub("events")
     for {
         event = <- allEvents 
         ievent = event.(VerticaEvent) 
-        if ievent.Type == "AllocationPoolStatistics" {
-            labels = make(map[string]string)
-            labels["node_name"] = ievent.Data["node_name"].(string)
-            labels["pool_name"] = ievent.Data["pool_name"].(string)
-            metric = PrometheusMetric{Name: "vertica_dc_allocationpoolstatistics_chunks", Value: ievent.Data["chunks"], Labels: &labels}
-            (*metrics)[metric.Name] = metric
-            metric = PrometheusMetric{Name: "vertica_dc_allocationpoolstatistics_total_memory", Value: ievent.Data["total_memory"], Labels: &labels}
-            (*metrics)[metric.Name] = metric
-            metric = PrometheusMetric{Name: "vertica_dc_allocationpoolstatistics_free_memory", Value: ievent.Data["free_memory"], Labels: &labels}
-            (*metrics)[metric.Name] = metric 
-        }
         if stringInSlice(ievent.Type, reportStreams) {
             labels = make(map[string]string)
             for k, v := range ievent.Data {
@@ -87,6 +99,7 @@ func startMetricsAggregator(metrics *map[string]PrometheusMetric, eventsPubsub *
                     labels[k] = ievent.Data[k].(string)
                 } else {
                     metricName = fmt.Sprintf("vertica_dc_%s_%s", strings.ToLower(ievent.Type), k)
+                    parsedValue = parseValue(v.(string))
                     metric = PrometheusMetric{Name: metricName, Value: v, Labels: &labels}
                     (*metrics)[metric.Name] = metric
                 }
