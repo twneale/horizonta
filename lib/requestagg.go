@@ -39,7 +39,6 @@ func StartRequestAggregator(tailPubsub *pubsub.PubSub, requestPubsub *pubsub.Pub
             cacheKey = fmt.Sprintf("%s::%s", ievent.Data["session_id"], ievent.Data["request_id"])
             issued = requestsIssued[cacheKey]
             request = VerticaRequest{Request: issued, Result: event}
-            fmt.Println("About to publish this cow:", request)
             publishAggregatedRequest(request, requestPubsub)
         }
     }

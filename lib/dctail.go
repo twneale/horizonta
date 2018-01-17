@@ -23,7 +23,7 @@ import (
 
 var events pubsub.PubSub
 var verticaEpoch time.Time
-var verticaEpochOffset int
+var verticaEpochOffset uint
 
 
 type VerticaEventRaw struct {
@@ -47,28 +47,40 @@ func handleEvent(raw VerticaEventRaw, metadata map[string]map[string]string, eve
     publishEvent(event, events)
 }
 
+func sloppyParseInt(s string) interface{} {
+    // Trying parsing as a signed int64. If that overflows, try unsigned int64.
+    var value interface{}
+    value, err := strconv.ParseInt(s, 10, 64)
+    if err != nil {
+        value, err := strconv.ParseUint(s, 10, 64)
+        if err != nil {
+            debug.PrintStack()
+            panic(err)
+        }
+        return value
+    }
+    return value
+}
+
 
 func parseEvent(r VerticaEventRaw, metadata map[string]map[string]string) VerticaEvent {
     tableNameSlug := strings.ToLower(r.Type)
     dataTypes := metadata[tableNameSlug]
     verticaEpoch := time.Date(2000, time.January, 1, 0, 0, 0, 0, time.UTC).Unix()
     unixEpoch := time.Unix(0, 0).Unix()
-    verticaEpochOffset := verticaEpoch - unixEpoch 
+    verticaEpochOffset := int64(verticaEpoch - unixEpoch)
+    // The placeholder time Vertica uses when time field is null.
+    verticaTimePlaceholder := time.Date(-290278, time.December, 22, 19, 59, 6, 0, time.UTC)
     newData := make(map[string]interface{})
     for k, v := range r.Data { 
+        if r.Type == "TransactionEnds" && k == "epoch_close_time" {
+            // We'll just completely omit this value, because it's always -9223372036854775808,
+            // which is a placeholder date that parses to "-290278-12-22 19:59:06 +0000 UTC".
+            continue
+        }
         switch dataTypes[k] {
-        // Trying parsing as a signed int64. If that overflows, try unsigned int64.
         case "int":
-            var value interface{}
-            value, err := strconv.ParseInt(v, 10, 64)
-            if err != nil {
-                value, err := strconv.ParseUint(v, 10, 64)
-                if err != nil {
-                    debug.PrintStack()
-                    panic(err)
-                }
-                newData[k] = value
-            }
+            value := sloppyParseInt(v)
             newData[k] = value
         case "float":
             value, err := strconv.ParseFloat(v, 64)
@@ -84,15 +96,15 @@ func parseEvent(r VerticaEventRaw, metadata map[string]map[string]string) Vertic
                 panic(err)
             }
             newData[k] = value
-        case "timestampz":
+        case "timestamptz":
             // Behold! The weird way Vertica timestamps must be parsed:
-            val, err := strconv.ParseInt(v, 10, 64)
-            if err != nil {
-                debug.PrintStack()
-                panic(err)
+            val := sloppyParseInt(v).(int64)
+            value := time.Unix(int64((val / int64(1000000)) + verticaEpochOffset), 0)
+            if value == verticaTimePlaceholder {
+                newData[k] = nil 
+            } else {
+                newData[k] = value 
             }
-            value := time.Unix((val / 1000000) + verticaEpochOffset, 0)
-            newData[k] = value
         default:
             newData[k] = v
         }
@@ -155,13 +167,12 @@ func tailthing(filename string, created bool, metadata map[string]map[string]str
             // Found a VerticaEventRaw key. Start a new VerticaEventRaw.
             data = map[string]string{}
             thing = VerticaEventRaw{Type: strings.Replace(line, ":DC", "", 1), Data: data}
-            //_ = thing
         } else if line == "." {
             // Found a VerticaEventRaw delimiter; send the VerticaEventRaw out.
             go handleEvent(thing, metadata, events)
         } else {
             // Found an item; add it to the VerticaEventRaw.
-            bits := strings.Split(line, ":")
+            bits := strings.SplitN(line, ":", 2)
             key := bits[0]
             value := bits[1]
             data[key] = value
@@ -171,7 +182,6 @@ func tailthing(filename string, created bool, metadata map[string]map[string]str
             panic(err)
         }
     }
-
     handleEvent(thing, metadata, events)
 }
 
@@ -205,7 +215,6 @@ func StartDcTail(events *pubsub.PubSub) {
         }
         
         for _, f := range files {
-            //log.Println("Tailing existing file:", f.Name())
             go tailthing(f.Name(), false, metadata, events)
         }
 
@@ -213,7 +222,6 @@ func StartDcTail(events *pubsub.PubSub) {
             select {
             case event := <-watcher.Events:
                 if event.Op&fsnotify.Create == fsnotify.Create {
-                    //log.Println("starting new tail:", event.Name)
                     if event.Op&fsnotify.Create == fsnotify.Create {
                         go tailthing(event.Name, true, metadata, events)
                     }

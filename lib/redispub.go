@@ -3,6 +3,7 @@ package lib
 
 import (
     "fmt"
+    "log"
     "encoding/json"
     "runtime/debug"
 
@@ -12,6 +13,11 @@ import (
 
 
 func StartRedisPublisher(config *Config, pubSub *pubsub.PubSub, channel string) {
+    // Bail if no redis host specified.
+    if config.DisableRedisPublisher {
+        log.Println("Redis publisher disabled per config.")
+        return
+    }
     bindAddress := fmt.Sprintf("%s:%s", config.RedisHost, config.RedisPort)
     client := redis.NewClient(&redis.Options{
         Addr:     bindAddress,
@@ -28,6 +34,7 @@ func StartRedisPublisher(config *Config, pubSub *pubsub.PubSub, channel string) 
         ser, err = json.MarshalIndent(event, "", "  ")
         if err != nil {
             debug.PrintStack()
+            fmt.Println("BAD EVENT: ", event)
             panic(err)
         }
         err = client.Publish(channel, string(ser)).Err()
