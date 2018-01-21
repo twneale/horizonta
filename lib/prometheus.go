@@ -145,6 +145,13 @@ func processEvent(ievent VerticaEvent, dataTypes map[string]string) {
         return
     }
 
+    if success, ok := ievent.Data["success"]; ok {
+        if success.(bool) {
+            fmt.Println("Skipping successful heartbeat: ", ievent)
+            return
+        }
+    }
+
     // Vaule will always be 1, so we can sum them to measure how many events are active.
     value = 1
 
@@ -222,7 +229,9 @@ func metricsHandler(w http.ResponseWriter, r *http.Request) {
 
 func eventsHandler(w http.ResponseWriter, r *http.Request) {
     for _, v := range prometheusEvents {
-        v.Printf(w)
+        if len(*v.Labels) != 0 {
+            v.Printf(w)
+        }
     }
 }
 
